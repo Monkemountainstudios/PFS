@@ -320,7 +320,7 @@ function fitMachine() {
 
     machine.style.transform = 'scale(1)';
 
-    const naturalWidth = machine.offsetWidth;
+    const naturalWidth = machine.scrollWidth;
     const availableWidth = window.innerWidth - 20;
 
     const scale = Math.min(1, availableWidth / naturalWidth);
