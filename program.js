@@ -313,4 +313,23 @@ document.querySelectorAll('.channel').forEach((ch,i)=>{
   pan.addEventListener('input',()=>{t.pan=Number(pan.value)/100;if(t.panNode)t.panNode.pan.setTargetAtTime(t.pan,audioCtx.currentTime,.01);});
   rev.addEventListener('input',()=>{t.reverb=Number(rev.value)/100;if(t.sendNode)t.sendNode.gain.setTargetAtTime(t.reverb,audioCtx.currentTime,.01);});
 });
+function fitMachine() {
+    const shell = document.querySelector('.machine-shell');
+    const machine = document.querySelector('.machine');
+
+    if (!shell || !machine) return;
+
+    // Measure the machine at full size
+    machine.style.transform = 'scale(1)';
+
+    const naturalWidth = machine.offsetWidth;
+    const availableWidth = shell.clientWidth;
+
+    const scale = Math.min(1, availableWidth / naturalWidth);
+
+    machine.style.transform = `scale(${scale})`;
+}
+
+window.addEventListener('load', fitMachine);
+window.addEventListener('resize', fitMachine);
 document.querySelectorAll('.mute-button').forEach(b=>b.addEventListener('click',()=>{const t=tracks[Number(b.dataset.track)];t.muted=!t.muted;b.classList.toggle('active',t.muted);b.setAttribute('aria-pressed',String(t.muted));}));
