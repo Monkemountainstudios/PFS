@@ -2,7 +2,7 @@ const LEVELS = 5;
 const ROOT_MIDI = 60; // C4: tune all source samples to C4 to avoid tuning problems - Basta.
 const MIN_MIDI = 36;  // C2
 const MAX_MIDI = 84;  // C6
-const TRACK_X = [22, 63];
+const TRACK_X = [21, 60];
 const SAMPLE_FILES = [1,2,3,4,5].map(n => `audio/sound${n}.ogg`);
 
 const tempo = document.getElementById('tempo');
@@ -67,7 +67,8 @@ function midiName(midi) {
 function createTree(track) {
   const area = document.createElement('div');
   area.className = 'tree-area';
-  area.style.left = `calc(${TRACK_X[track.index]}% - 350px)`;
+  area.style.left = `${TRACK_X[track.index]}%`;
+  area.style.transform = 'translateX(-50%) translateY(10px)';
   const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.classList.add('branches');
   svg.setAttribute('viewBox','0 0 700 570');
