@@ -1,9 +1,9 @@
-PFS - Probabilistic Fractal Sequencer V0.1
+PFS - Probabilistic Fractal Sequencer V1.11
 
-PFS V0.3 — a two-track, five-level probabilistic sample sequencer derived from PFD.
+PFS — a two-track, five-level probabilistic sample sequencer derived from PFD.
 
 AUDIO
-Place five samples in the audio folder:
+Place five samples in the audio folder: Samples included in package.
   sound1.ogg
   sound2.ogg
   sound3.ogg
@@ -49,3 +49,10 @@ V0.4 visual polish:
 - Full-height divider between sequencer and utility/mixer area.
 - Colored Gate/Vol/Pan/Rev slider rails with hardware-style grey caps.
 - Stronger indicator lines on Filter and Ratchet knobs.
+
+V1.11 Bugfixes
+- Auto resizing to fit window
+- Added colour to sliders
+- Oriented layout of buttons and graphics
+- Minor value changes to Reverb
+
