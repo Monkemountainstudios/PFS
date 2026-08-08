@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PFS - Probabilistic Fractal Sequencer V0.4</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="machine-shell">
+    <section class="machine" aria-label="Probabilistic Fractal Sequencer">
+      <div class="brand">PFS - PROBABILISTIC FRACTAL SEQUENCER</div>
+
+      <div class="master-controls">
+        <div class="tempo-block">
+          <div class="knob" id="tempoKnob"><span></span></div>
+          <label>TEMPO</label>
+          <input id="tempo" type="range" min="20" max="240" value="90" tabindex="-1" />
+          <output id="tempoValue">90 BPM</output>
+        </div>
+        <div class="swing-block">
+          <label for="swing">SWING</label>
+          <input id="swing" type="range" min="50" max="75" value="50" />
+          <output id="swingValue">50%</output>
+        </div>
+      </div>
+
+      <div class="utility-divider" aria-hidden="true"></div>
+
+      <div class="ratchet-block">
+        <div class="section-title">RATCHET</div>
+        <div class="ratchet-knobs">
+          <label><span>PROB.</span><div class="mini-knob" id="ratchetProbKnob"><span></span></div><input id="ratchetProb" type="range" min="0" max="100" value="12" tabindex="-1"><output id="ratchetProbValue">12%</output></label>
+          <label><span>REPEATS</span><div class="mini-knob" id="ratchetCountKnob"><span></span></div><input id="ratchetCount" type="range" min="2" max="4" step="1" value="3" tabindex="-1"><output id="ratchetCountValue">3</output></label>
+        </div>
+        <button id="ratchetFade" class="mode-button" type="button" aria-pressed="false">FADE</button>
+        <div class="route-label">ROUTE</div>
+        <div class="route-row">
+          <button class="route-button" data-track="0" type="button" aria-pressed="false">1</button>
+          <button class="route-button" data-track="1" type="button" aria-pressed="false">2</button>
+        </div>
+      </div>
+
+      <div id="trees"></div>
+
+      <div class="track-row">
+        <button class="track-button" data-track="0" type="button" aria-pressed="false">1</button>
+        <button class="track-button" data-track="1" type="button" aria-pressed="false">2</button>
+      </div>
+
+      <aside class="utility-column">
+        <div class="mixer-row-label">MIX</div>
+        <div class="channels">
+          <div class="channel" data-track="0">
+            <div class="channel-num">1</div>
+            <div class="sample-bank"><div class="sample-label">SAMPLE</div>
+              <button type="button" class="sample-button selected" data-sample="0">1</button><button type="button" class="sample-button" data-sample="1">2</button><button type="button" class="sample-button" data-sample="2">3</button><button type="button" class="sample-button" data-sample="3">4</button><button type="button" class="sample-button" data-sample="4">5</button>
+            </div>
+            <label class="filter-label">FILTER<div class="filter-knob"><span></span></div><input class="filter" type="range" min="0" max="100" value="100" tabindex="-1"></label>
+            <div class="fader-grid">
+              <label class="gate-label">GATE<input class="mix-slider gate" type="range" min="5" max="100" value="75" orient="vertical"></label>
+              <label class="volume-label">VOL<input class="mix-slider volume" type="range" min="0" max="120" value="100" orient="vertical"></label>
+              <label class="pan-label">PAN<input class="mix-slider pan" type="range" min="-100" max="100" value="0" orient="vertical"></label>
+              <label class="reverb-label">REV<input class="mix-slider reverb" type="range" min="0" max="100" value="8" orient="vertical"></label>
+            </div>
+            <div class="mute-label">MUTE</div><button class="mute-button" data-track="0">1</button>
+          </div>
+
+          <div class="channel" data-track="1">
+            <div class="channel-num">2</div>
+            <div class="sample-bank"><div class="sample-label">SAMPLE</div>
+              <button type="button" class="sample-button selected" data-sample="0">1</button><button type="button" class="sample-button" data-sample="1">2</button><button type="button" class="sample-button" data-sample="2">3</button><button type="button" class="sample-button" data-sample="3">4</button><button type="button" class="sample-button" data-sample="4">5</button>
+            </div>
+            <label class="filter-label">FILTER<div class="filter-knob"><span></span></div><input class="filter" type="range" min="0" max="100" value="100" tabindex="-1"></label>
+            <div class="fader-grid">
+              <label class="gate-label">GATE<input class="mix-slider gate" type="range" min="5" max="100" value="75" orient="vertical"></label>
+              <label class="volume-label">VOL<input class="mix-slider volume" type="range" min="0" max="120" value="100" orient="vertical"></label>
+              <label class="pan-label">PAN<input class="mix-slider pan" type="range" min="-100" max="100" value="0" orient="vertical"></label>
+              <label class="reverb-label">REV<input class="mix-slider reverb" type="range" min="0" max="100" value="8" orient="vertical"></label>
+            </div>
+            <div class="mute-label">MUTE</div><button class="mute-button" data-track="1">2</button>
+          </div>
+        </div>
+        <button id="transport" class="transport-button" type="button" aria-pressed="false">PLAY</button>
+      </aside>
+    </section>
+  </main>
+  <script src="program.js"></script>
+</body>
+</html>

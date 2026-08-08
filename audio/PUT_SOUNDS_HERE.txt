@@ -1,0 +1,5 @@
+Place these files here:
+kick.ogg
+snare.ogg
+hh.ogg
+perc.ogg
