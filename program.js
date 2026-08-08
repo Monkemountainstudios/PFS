@@ -1,5 +1,5 @@
 const LEVELS = 5;
-const ROOT_MIDI = 60; // C4: tune all source samples to C4 for predictable note names.
+const ROOT_MIDI = 60; // C4: tune all source samples to C4 to avoid tuning problems.
 const MIN_MIDI = 36;  // C2
 const MAX_MIDI = 84;  // C6
 const TRACK_X = [22, 63];
