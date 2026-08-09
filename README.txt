@@ -1,4 +1,4 @@
-PFS - Probabilistic Fractal Sequencer V1.11
+PFS - Probabilistic Fractal Sequencer V1.13
 
 PFS — a two-track, five-level probabilistic sample sequencer derived from PFD.
 
@@ -56,3 +56,8 @@ V1.11 Bugfixes
 - Oriented layout of buttons and graphics
 - Minor value changes to Reverb
 
+
+V1.13
+- Includes the V1.12 output limiter/headroom panning fix.
+- Added large red FUAP! global source override.
+- Add audio/fuap.ogg. When active, both tracks use FUAP while retaining their own notes, filters, gates, pan, reverb and ratchets.

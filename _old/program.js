@@ -4,7 +4,6 @@ const MIN_MIDI = 36;  // C2
 const MAX_MIDI = 84;  // C6
 const TRACK_X = [21, 60];
 const SAMPLE_FILES = [1,2,3,4,5].map(n => `audio/sound${n}.ogg`);
-const FUAP_FILE = 'audio/fuap.ogg';
 
 const tempo = document.getElementById('tempo');
 const tempoKnob = document.getElementById('tempoKnob');
@@ -20,16 +19,12 @@ const ratchetCountKnob = document.getElementById('ratchetCountKnob');
 const ratchetProbValue = document.getElementById('ratchetProbValue');
 const ratchetCountValue = document.getElementById('ratchetCountValue');
 const ratchetFade = document.getElementById('ratchetFade');
-const fuapButton = document.getElementById('fuapButton');
 
 let audioCtx = null;
 let master = null;
-let outputLimiter = null;
 let reverbInput = null;
 let reverbReturn = null;
 let playing = false;
-let fuapBuffer = null;
-let fuapMode = false;
 let schedulerTimer = null;
 let nextBaseStepTime = 0;
 let baseStepIndex = 0;
@@ -189,14 +184,7 @@ document.querySelectorAll('.track-button').forEach(btn => btn.addEventListener('
 function ensureAudio() {
   if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  master = audioCtx.createGain(); master.gain.value=0.72;
-  outputLimiter = audioCtx.createDynamicsCompressor();
-  outputLimiter.threshold.value = -3;
-  outputLimiter.knee.value = 0;
-  outputLimiter.ratio.value = 20;
-  outputLimiter.attack.value = 0.003;
-  outputLimiter.release.value = 0.12;
-  master.connect(outputLimiter); outputLimiter.connect(audioCtx.destination);
+  master = audioCtx.createGain(); master.gain.value=0.75; master.connect(audioCtx.destination);
   const convolver=audioCtx.createConvolver();
   convolver.buffer=makeImpulse(1.05,2.4);
   const wet=audioCtx.createGain(); wet.gain.value=1.0;
@@ -221,20 +209,13 @@ async function loadSamples(){
     try { const r=await fetch(file); if(!r.ok) throw new Error(); const b=await audioCtx.decodeAudioData(await r.arrayBuffer()); tracks.forEach(t=>t.buffers[i]=b); }
     catch { console.warn(`Missing ${file}; using synth fallback.`); }
   }));
-  try {
-    const r = await fetch(FUAP_FILE);
-    if (!r.ok) throw new Error();
-    fuapBuffer = await audioCtx.decodeAudioData(await r.arrayBuffer());
-  } catch {
-    console.warn(`Missing ${FUAP_FILE}; FUAP override will use the selected sample.`);
-  }
 }
 
 function trigger(track, state, time, velocity=1, gateOverride=null) {
   if(track.muted || !state.active) return;
   const stepDur=secondsPerStep()*track.rateDiv;
   const gateTime=(gateOverride ?? track.gate)*stepDur;
-  const buffer=(fuapMode && fuapBuffer) ? fuapBuffer : track.buffers[track.selectedSample];
+  const buffer=track.buffers[track.selectedSample];
   if(buffer){
     const src=audioCtx.createBufferSource(); src.buffer=buffer; src.playbackRate.value=Math.pow(2,(state.midi-ROOT_MIDI)/12);
     const env=audioCtx.createGain(); env.gain.setValueAtTime(Math.max(0.0001,velocity),time); env.gain.setValueAtTime(Math.max(0.0001,velocity),Math.max(time,time+gateTime-0.012)); env.gain.exponentialRampToValueAtTime(0.0001,time+gateTime);
@@ -351,11 +332,5 @@ function fitMachine() {
 
 window.addEventListener('load', fitMachine);
 window.addEventListener('resize', fitMachine);
-
-fuapButton.addEventListener('click',()=>{
-  fuapMode = !fuapMode;
-  fuapButton.classList.toggle('active',fuapMode);
-  fuapButton.setAttribute('aria-pressed',String(fuapMode));
-});
 
 document.querySelectorAll('.mute-button').forEach(b=>b.addEventListener('click',()=>{const t=tracks[Number(b.dataset.track)];t.muted=!t.muted;b.classList.toggle('active',t.muted);b.setAttribute('aria-pressed',String(t.muted));}));
