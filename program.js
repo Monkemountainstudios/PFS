@@ -236,9 +236,34 @@ function trigger(track, state, time, velocity=1, gateOverride=null) {
   const gateTime=(gateOverride ?? track.gate)*stepDur;
   const buffer=(fuapMode && fuapBuffer) ? fuapBuffer : track.buffers[track.selectedSample];
   if(buffer){
-    const src=audioCtx.createBufferSource(); src.buffer=buffer; src.playbackRate.value=Math.pow(2,(state.midi-ROOT_MIDI)/12);
-    const env=audioCtx.createGain(); env.gain.setValueAtTime(Math.max(0.0001,velocity),time); env.gain.setValueAtTime(Math.max(0.0001,velocity),Math.max(time,time+gateTime-0.012)); env.gain.exponentialRampToValueAtTime(0.0001,time+gateTime);
-    src.connect(env); env.connect(track.filterNode); src.start(time); src.stop(time+gateTime+0.03);
+    const src=audioCtx.createBufferSource();
+    src.buffer=buffer;
+    src.playbackRate.value=Math.pow(2,(state.midi-ROOT_MIDI)/12);
+
+    const env=audioCtx.createGain();
+    const isFuap = fuapMode && fuapBuffer && buffer === fuapBuffer;
+
+    if(isFuap){
+      // FUAP has diplomatic immunity from Gate: let the complete sample play.
+      // playbackRate still changes its natural duration when pitched.
+      const naturalDuration = buffer.duration / src.playbackRate.value;
+      const fadeOut = Math.min(0.025, naturalDuration * 0.1);
+      env.gain.setValueAtTime(Math.max(0.0001,velocity),time);
+      env.gain.setValueAtTime(Math.max(0.0001,velocity),Math.max(time,time+naturalDuration-fadeOut));
+      env.gain.exponentialRampToValueAtTime(0.0001,time+naturalDuration);
+      src.connect(env);
+      env.connect(track.filterNode);
+      src.start(time);
+      src.stop(time+naturalDuration+0.03);
+    } else {
+      env.gain.setValueAtTime(Math.max(0.0001,velocity),time);
+      env.gain.setValueAtTime(Math.max(0.0001,velocity),Math.max(time,time+gateTime-0.012));
+      env.gain.exponentialRampToValueAtTime(0.0001,time+gateTime);
+      src.connect(env);
+      env.connect(track.filterNode);
+      src.start(time);
+      src.stop(time+gateTime+0.03);
+    }
   } else synthFallback(track,state,time,velocity,gateTime);
 }
 function synthFallback(track,state,time,velocity,gateTime){
