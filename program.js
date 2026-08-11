@@ -358,24 +358,6 @@ document.querySelectorAll('.channel').forEach((ch,i)=>{
   pan.addEventListener('input',()=>{t.pan=Number(pan.value)/100;if(t.panNode)t.panNode.pan.setTargetAtTime(t.pan,audioCtx.currentTime,.01);});
   rev.addEventListener('input',()=>{t.reverb=Number(rev.value)/100;if(t.sendNode)t.sendNode.gain.setTargetAtTime(t.reverb,audioCtx.currentTime,.01);});
 });
-function fitMachine() {
-    const machine = document.querySelector('.machine');
-
-    if (!machine) return;
-
-    machine.style.transform = 'scale(1)';
-
-    const naturalWidth = machine.scrollWidth;
-    const availableWidth = window.innerWidth - 20;
-
-    const scale = Math.min(1, availableWidth / naturalWidth);
-
-    machine.style.transform = `scale(${scale})`;
-    machine.style.transformOrigin = 'top left';
-}
-
-window.addEventListener('load', fitMachine);
-window.addEventListener('resize', fitMachine);
 
 fuapButton.addEventListener('click',()=>{
   fuapMode = !fuapMode;
