@@ -61,3 +61,13 @@ V1.13
 - Includes the V1.12 output limiter/headroom panning fix.
 - Added large red FUAP! global source override.
 - Add audio/fuap.ogg. When active, both tracks use FUAP while retaining their own notes, filters, gates, pan, reverb and ratchets.
+
+
+V1.15 MIDI CLOCK IN
+- Added MIDI button immediately left of FUAP.
+- Incoming F8 drives PFS at 6 clocks per 1/16 base step.
+- FA establishes/reset musical ONE without forcing playback.
+- Hidden phase continues while PFS is locally stopped; PLAY joins the current external phase.
+- FC is observed but local PLAY/STOP remains independent.
+- F8-only masters still work; phase is marked ~ because no absolute ONE was supplied.
+- Selecting NO MIDI INPUT restores the original internal scheduler.

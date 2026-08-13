@@ -21,6 +21,12 @@ const ratchetProbValue = document.getElementById('ratchetProbValue');
 const ratchetCountValue = document.getElementById('ratchetCountValue');
 const ratchetFade = document.getElementById('ratchetFade');
 const fuapButton = document.getElementById('fuapButton');
+const midiButton=document.getElementById('midiButton');
+const midiPanel=document.getElementById('midiPanel');
+const midiInput=document.getElementById('midiInput');
+const midiStatus=document.getElementById('midiStatus');
+const midiBpm=document.getElementById('midiBpm');
+const midiPhase=document.getElementById('midiPhase');
 
 let audioCtx = null;
 let master = null;
@@ -35,6 +41,8 @@ let nextBaseStepTime = 0;
 let baseStepIndex = 0;
 const lookaheadMs = 25;
 const scheduleAhead = 0.12;
+let midiAccess=null,midiPort=null,midiExternal=false;
+let midiPulseCounter=0,midiStepCounter=0,midiLastPulseTime=0,midiIntervals=[],midiClockSeenAt=0,midiHasStartReference=false;
 
 const ratchet = { probability: 0.12, repeats: 3, fade: false, routes: [false,false] };
 
@@ -298,6 +306,7 @@ function maybeTrigger(track,state,time){
 
 function secondsPerStep(){ return 60/Number(tempo.value)/4; }
 function scheduler(){
+  if(midiExternal) return;
   while(nextBaseStepTime<audioCtx.currentTime+scheduleAhead){ scheduleBaseStep(nextBaseStepTime,baseStepIndex); baseStepIndex++; nextBaseStepTime += secondsPerStep(); }
 }
 function scheduleBaseStep(time, idx){
@@ -327,15 +336,18 @@ function blinkHiddenTracks(time,idx){ if(idx%4!==0)return; const d=Math.max(0,(t
 transport.addEventListener('click',async()=>{
   ensureAudio(); await audioCtx.resume();
   playing=!playing; transport.textContent=playing?'STOP':'PLAY'; transport.setAttribute('aria-pressed',String(playing));
-  if(playing){ tracks.forEach(t=>{t.level=0;t.nodeIndex=0;t.rateCounter=0;}); baseStepIndex=0; nextBaseStepTime=audioCtx.currentTime+0.06; schedulerTimer=setInterval(scheduler,lookaheadMs); }
-  else { clearInterval(schedulerTimer); schedulerTimer=null; }
+  if(playing){
+    tracks.forEach(t=>{t.level=0;t.nodeIndex=0;t.rateCounter=0;});
+    if(midiExternal){ baseStepIndex=midiStepCounter; clearInterval(schedulerTimer); schedulerTimer=null; }
+    else { baseStepIndex=0; nextBaseStepTime=audioCtx.currentTime+0.06; schedulerTimer=setInterval(scheduler,lookaheadMs); }
+  } else { clearInterval(schedulerTimer); schedulerTimer=null; }
 });
 
 function bindKnob(knob,input,onInput){
   let startY,startV;
-  knob.addEventListener('pointerdown',e=>{startY=e.clientY;startV=Number(input.value);knob.setPointerCapture(e.pointerId);});
-  knob.addEventListener('pointermove',e=>{if(startY===undefined)return; const span=Number(input.max)-Number(input.min); input.value=Math.max(Number(input.min),Math.min(Number(input.max),startV+(startY-e.clientY)*span/160)); input.dispatchEvent(new Event('input'));});
-  knob.addEventListener('pointerup',()=>{startY=undefined;}); knob.addEventListener('wheel',e=>{e.preventDefault(); input.value=Number(input.value)+(e.deltaY<0?Number(input.step||1):-Number(input.step||1));input.dispatchEvent(new Event('input'));},{passive:false});
+  knob.addEventListener('pointerdown',e=>{if(input===tempo&&midiExternal)return;startY=e.clientY;startV=Number(input.value);knob.setPointerCapture(e.pointerId);});
+  knob.addEventListener('pointermove',e=>{if(input===tempo&&midiExternal)return;if(startY===undefined)return; const span=Number(input.max)-Number(input.min); input.value=Math.max(Number(input.min),Math.min(Number(input.max),startV+(startY-e.clientY)*span/160)); input.dispatchEvent(new Event('input'));});
+  knob.addEventListener('pointerup',()=>{startY=undefined;}); knob.addEventListener('wheel',e=>{if(input===tempo&&midiExternal){e.preventDefault();return;}e.preventDefault(); input.value=Number(input.value)+(e.deltaY<0?Number(input.step||1):-Number(input.step||1));input.dispatchEvent(new Event('input'));},{passive:false});
   input.addEventListener('input',onInput);
 }
 function setKnobVisual(knob,input,minDeg=135,sweep=270){ const ind=knob.querySelector('span'); const min=Number(input.min),max=Number(input.max),v=Number(input.value); const t=(v-min)/(max-min); ind.style.transform=`rotate(${minDeg+t*sweep}deg)`; }
@@ -364,5 +376,39 @@ fuapButton.addEventListener('click',()=>{
   fuapButton.classList.toggle('active',fuapMode);
   fuapButton.setAttribute('aria-pressed',String(fuapMode));
 });
+
+
+/* ---------- WEB MIDI CLOCK IN ---------- */
+midiButton.addEventListener('click',async()=>{midiPanel.classList.toggle('open');if(!midiAccess)await initMIDI();});
+async function initMIDI(){
+  if(!navigator.requestMIDIAccess){midiStatus.textContent='UNAVAILABLE';return;}
+  try{midiStatus.textContent='REQUESTING';midiAccess=await navigator.requestMIDIAccess({sysex:false});midiAccess.onstatechange=populateMidiInputs;populateMidiInputs();midiStatus.textContent='READY';}
+  catch(err){console.warn('MIDI access failed',err);midiStatus.textContent='DENIED';}
+}
+function populateMidiInputs(){
+  const old=midiInput.value;midiInput.innerHTML='<option value="">NO MIDI INPUT</option>';if(!midiAccess)return;
+  for(const input of midiAccess.inputs.values()){const o=document.createElement('option');o.value=input.id;o.textContent=input.name||'MIDI INPUT';midiInput.appendChild(o);}
+  if([...midiInput.options].some(o=>o.value===old))midiInput.value=old;
+}
+midiInput.addEventListener('change',async()=>{
+  if(midiPort)midiPort.onmidimessage=null;midiPort=null;midiExternal=!!midiInput.value;midiLastPulseTime=0;midiIntervals=[];midiClockSeenAt=0;midiBpm.textContent='--';
+  if(!midiExternal){midiStatus.textContent='READY';midiPhase.textContent='--';if(playing){baseStepIndex=0;nextBaseStepTime=audioCtx.currentTime+0.05;clearInterval(schedulerTimer);schedulerTimer=setInterval(scheduler,lookaheadMs);}return;}
+  midiPort=midiAccess.inputs.get(midiInput.value);if(midiPort){try{await midiPort.open();}catch(e){}midiPort.onmidimessage=handleMidiMessage;midiStatus.textContent='WAITING';clearInterval(schedulerTimer);schedulerTimer=null;}
+});
+function updateMidiTempoDisplay(bpm){const min=Number(tempo.min),max=Number(tempo.max),v=Math.max(min,Math.min(max,Math.round(bpm)));tempo.value=String(v);tempoValue.value=`${v} BPM`;setKnobVisual(tempoKnob,tempo);midiBpm.textContent=String(v);}
+function flashMidiQuarter(){midiButton.classList.add('clock-pulse');setTimeout(()=>midiButton.classList.remove('clock-pulse'),70);}
+function updateMidiPhaseDisplay(){const p=((midiPulseCounter%96)+96)%96,beat=Math.floor(p/24)+1,sixteenth=Math.floor((p%24)/6)+1;midiPhase.textContent=(midiHasStartReference?'':'~')+beat+'.'+sixteenth;}
+function handleMidiMessage(e){
+  if(!e.data||!e.data.length)return;const status=e.data[0];
+  if(status===0xFA){midiPulseCounter=0;midiStepCounter=0;midiHasStartReference=true;midiStatus.textContent='START / CLOCK';updateMidiPhaseDisplay();return;}
+  if(status===0xFC){midiStatus.textContent='MASTER STOP';return;}
+  if(status!==0xF8)return;
+  const now=performance.now();midiClockSeenAt=now;
+  if(midiLastPulseTime){const dt=now-midiLastPulseTime;if(dt>1&&dt<1000){midiIntervals.push(dt);if(midiIntervals.length>24)midiIntervals.shift();if(midiIntervals.length>=6){const avg=midiIntervals.reduce((a,b)=>a+b,0)/midiIntervals.length,bpm=60000/(avg*24);if(Number.isFinite(bpm)&&bpm>=20&&bpm<=300)updateMidiTempoDisplay(bpm);}}}
+  midiLastPulseTime=now;midiStatus.textContent='CLOCK';if(midiPulseCounter%24===0)flashMidiQuarter();
+  if(midiPulseCounter%6===0){const idx=midiStepCounter;if(playing){ensureAudio();scheduleBaseStep(audioCtx.currentTime+0.006,idx);baseStepIndex=idx+1;}midiStepCounter++;}
+  midiPulseCounter++;updateMidiPhaseDisplay();
+}
+setInterval(()=>{if(midiExternal&&midiClockSeenAt&&performance.now()-midiClockSeenAt>1000){midiStatus.textContent='NO CLOCK';midiBpm.textContent='--';}},250);
 
 document.querySelectorAll('.mute-button').forEach(b=>b.addEventListener('click',()=>{const t=tracks[Number(b.dataset.track)];t.muted=!t.muted;b.classList.toggle('active',t.muted);b.setAttribute('aria-pressed',String(t.muted));}));
