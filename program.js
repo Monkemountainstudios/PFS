@@ -27,6 +27,11 @@ const midiInput=document.getElementById('midiInput');
 const midiStatus=document.getElementById('midiStatus');
 const midiBpm=document.getElementById('midiBpm');
 const midiPhase=document.getElementById('midiPhase');
+const nmidiMode=document.getElementById('nmidiMode');
+const nmidiStatus=document.getElementById('nmidiStatus');
+const nmidiBpm=document.getElementById('nmidiBpm');
+const nmidiSource=document.getElementById('nmidiSource');
+const nmidiPacket=document.getElementById('nmidiPacket');
 
 let audioCtx = null;
 let master = null;
@@ -43,6 +48,10 @@ const lookaheadMs = 25;
 const scheduleAhead = 0.12;
 let midiAccess=null,midiPort=null,midiExternal=false;
 let midiPulseCounter=0,midiStepCounter=0,midiLastPulseTime=0,midiIntervals=[],midiClockSeenAt=0,midiHasStartReference=false;
+const NMIDI_CHANNEL_NAME='monke-nmidi-v3';
+const nmidiChannel=('BroadcastChannel' in window)?new BroadcastChannel(NMIDI_CHANNEL_NAME):null;
+let nmidiRole='off',nmidiMasterRunning=false,nmidiPhaseOriginMs=null,nmidiBpmValue=Number(tempo.value);
+let nmidiLastPacketAt=0,nmidiLastAppliedBpm=null,nmidiLastAppliedOrigin=null,nmidiHeartbeatTimer=null,nmidiPreviousMasterBpm=Number(tempo.value);
 
 const ratchet = { probability: 0.12, repeats: 3, fade: false, routes: [false,false] };
 
@@ -189,15 +198,6 @@ function refreshTrackStatus(track) {
 
 tracks.forEach(createTree);
 
-
-document.querySelectorAll('.transpose-button').forEach(b=>b.addEventListener('click',()=>{
-  const shift=Number(b.dataset.shift);
-  tracks.forEach(track=>track.nodes.forEach(state=>{
-    state.midi=Math.max(MIN_MIDI,Math.min(MAX_MIDI,state.midi+shift));
-    renderNode(state);
-  }));
-}));
-
 document.querySelectorAll('.track-button').forEach(btn => btn.addEventListener('click',()=>{
   const t=tracks[Number(btn.dataset.track)]; t.open=!t.open;
   t.area.classList.toggle('visible',t.open); btn.classList.toggle('tree-open',t.open); btn.setAttribute('aria-pressed',String(t.open));
@@ -313,9 +313,10 @@ function maybeTrigger(track,state,time){
   }
 }
 
-function secondsPerStep(){ return 60/Number(tempo.value)/4; }
+function secondsPerStep(){const bpm=nmidiRole==='follow'?nmidiBpmValue:Number(tempo.value);return 60/bpm/4;}
 function scheduler(){
   if(midiExternal) return;
+  if(nmidiRole==='follow'&&!nmidiMasterRunning)return;
   while(nextBaseStepTime<audioCtx.currentTime+scheduleAhead){ scheduleBaseStep(nextBaseStepTime,baseStepIndex); baseStepIndex++; nextBaseStepTime += secondsPerStep(); }
 }
 function scheduleBaseStep(time, idx){
@@ -347,21 +348,32 @@ transport.addEventListener('click',async()=>{
   playing=!playing; transport.textContent=playing?'STOP':'PLAY'; transport.setAttribute('aria-pressed',String(playing));
   if(playing){
     tracks.forEach(t=>{t.level=0;t.nodeIndex=0;t.rateCounter=0;});
-    if(midiExternal){ baseStepIndex=midiStepCounter; clearInterval(schedulerTimer); schedulerTimer=null; }
-    else { baseStepIndex=0; nextBaseStepTime=audioCtx.currentTime+0.06; schedulerTimer=setInterval(scheduler,lookaheadMs); }
-  } else { clearInterval(schedulerTimer); schedulerTimer=null; }
+    if(midiExternal){baseStepIndex=midiStepCounter;clearInterval(schedulerTimer);schedulerTimer=null;}
+    else if(nmidiRole==='follow'){clearInterval(schedulerTimer);schedulerTimer=null;if(nmidiMasterRunning&&nmidiPhaseOriginMs!=null)startNmidiFollowScheduler();else nmidiStatus.textContent='WAITING';}
+    else{
+      baseStepIndex=0;nextBaseStepTime=audioCtx.currentTime+.06;
+      if(nmidiRole==='master'){nmidiMasterRunning=true;nmidiBpmValue=Number(tempo.value);nmidiPreviousMasterBpm=nmidiBpmValue;nmidiPhaseOriginMs=nmidiGlobalNowMs()+60;sendNmidiState('start');startNmidiHeartbeat();}
+      scheduler();schedulerTimer=setInterval(scheduler,lookaheadMs);
+    }
+  }else{
+    clearInterval(schedulerTimer);schedulerTimer=null;
+    if(nmidiRole==='master'&&nmidiMasterRunning){nmidiMasterRunning=false;stopNmidiHeartbeat();sendNmidiState('stop');}
+  }
 });
 
 function bindKnob(knob,input,onInput){
   let startY,startV;
-  knob.addEventListener('pointerdown',e=>{if(input===tempo&&midiExternal)return;startY=e.clientY;startV=Number(input.value);knob.setPointerCapture(e.pointerId);});
-  knob.addEventListener('pointermove',e=>{if(input===tempo&&midiExternal)return;if(startY===undefined)return; const span=Number(input.max)-Number(input.min); input.value=Math.max(Number(input.min),Math.min(Number(input.max),startV+(startY-e.clientY)*span/160)); input.dispatchEvent(new Event('input'));});
-  knob.addEventListener('pointerup',()=>{startY=undefined;}); knob.addEventListener('wheel',e=>{if(input===tempo&&midiExternal){e.preventDefault();return;}e.preventDefault(); input.value=Number(input.value)+(e.deltaY<0?Number(input.step||1):-Number(input.step||1));input.dispatchEvent(new Event('input'));},{passive:false});
+  knob.addEventListener('pointerdown',e=>{if(input===tempo&&(midiExternal||nmidiRole==='follow'))return;startY=e.clientY;startV=Number(input.value);knob.setPointerCapture(e.pointerId);});
+  knob.addEventListener('pointermove',e=>{if(input===tempo&&(midiExternal||nmidiRole==='follow'))return;if(startY===undefined)return; const span=Number(input.max)-Number(input.min); input.value=Math.max(Number(input.min),Math.min(Number(input.max),startV+(startY-e.clientY)*span/160)); input.dispatchEvent(new Event('input'));});
+  knob.addEventListener('pointerup',()=>{startY=undefined;}); knob.addEventListener('wheel',e=>{if(input===tempo&&(midiExternal||nmidiRole==='follow')){e.preventDefault();return;}e.preventDefault(); input.value=Number(input.value)+(e.deltaY<0?Number(input.step||1):-Number(input.step||1));input.dispatchEvent(new Event('input'));},{passive:false});
   input.addEventListener('input',onInput);
 }
 function setKnobVisual(knob,input,minDeg=135,sweep=270){ const ind=knob.querySelector('span'); const min=Number(input.min),max=Number(input.max),v=Number(input.value); const t=(v-min)/(max-min); ind.style.transform=`rotate(${minDeg+t*sweep}deg)`; }
 
-bindKnob(tempoKnob,tempo,()=>{tempoValue.value=`${Math.round(Number(tempo.value))} BPM`;setKnobVisual(tempoKnob,tempo);}); setKnobVisual(tempoKnob,tempo);
+bindKnob(tempoKnob,tempo,()=>{
+  const newBpm=Math.round(Number(tempo.value));tempoValue.value=`${newBpm} BPM`;setKnobVisual(tempoKnob,tempo);
+  if(nmidiRole==='master'){const now=nmidiGlobalNowMs();if(nmidiMasterRunning&&nmidiPhaseOriginMs!=null){const oldStepMs=(60000/nmidiPreviousMasterBpm)/4;const elapsed=(now-nmidiPhaseOriginMs)/oldStepMs;nmidiPhaseOriginMs=now-elapsed*((60000/newBpm)/4);}nmidiPreviousMasterBpm=newBpm;nmidiBpmValue=newBpm;sendNmidiState('tempo');}
+}); setKnobVisual(tempoKnob,tempo);
 swing.addEventListener('input',()=>swingValue.value=`${swing.value}%`);
 bindKnob(ratchetProbKnob,ratchetProb,()=>{ratchet.probability=Number(ratchetProb.value)/100;ratchetProbValue.value=`${Math.round(Number(ratchetProb.value))}%`;setKnobVisual(ratchetProbKnob,ratchetProb);});
 bindKnob(ratchetCountKnob,ratchetCount,()=>{ratchet.repeats=Math.round(Number(ratchetCount.value));ratchetCount.value=ratchet.repeats;ratchetCountValue.value=String(ratchet.repeats);setKnobVisual(ratchetCountKnob,ratchetCount);}); setKnobVisual(ratchetProbKnob,ratchetProb); setKnobVisual(ratchetCountKnob,ratchetCount);
@@ -388,6 +400,50 @@ fuapButton.addEventListener('click',()=>{
 
 
 /* ---------- WEB MIDI CLOCK IN ---------- */
+
+function nmidiGlobalNowMs(){return performance.timeOrigin+performance.now();}
+function sendNmidiState(reason){
+  if(!nmidiChannel||nmidiRole!=='master')return;
+  nmidiPacket.textContent=String(reason).toUpperCase();nmidiStatus.textContent=nmidiMasterRunning?'MASTER RUN':'MASTER STOP';
+  nmidiBpm.textContent=String(Math.round(Number(tempo.value)));nmidiSource.textContent='PFS';
+  nmidiChannel.postMessage({protocol:'NMIDI',version:3,type:'state',source:'PFS',bpm:Number(tempo.value),running:nmidiMasterRunning,phaseOriginMs:nmidiPhaseOriginMs,sentAtMs:nmidiGlobalNowMs(),reason});
+}
+function startNmidiHeartbeat(){stopNmidiHeartbeat();nmidiHeartbeatTimer=setInterval(()=>sendNmidiState('heartbeat'),2000);}
+function stopNmidiHeartbeat(){if(nmidiHeartbeatTimer)clearInterval(nmidiHeartbeatTimer);nmidiHeartbeatTimer=null;}
+function setPfsTempoFromNmidi(bpm){if(!Number.isFinite(bpm))return;nmidiBpmValue=bpm;const c=Math.max(Number(tempo.min),Math.min(Number(tempo.max),Math.round(bpm)));tempo.value=String(c);tempoValue.value=`${c} BPM`;setKnobVisual(tempoKnob,tempo);nmidiBpm.textContent=String(c);}
+function alignPfsToNmidiPhase(){
+  if(!audioCtx||nmidiPhaseOriginMs==null)return;
+  const stepMs=(60000/nmidiBpmValue)/4, exact=(nmidiGlobalNowMs()-nmidiPhaseOriginMs)/stepMs, whole=Math.floor(exact), frac=exact-whole;
+  baseStepIndex=Math.max(0,whole);
+  tracks.forEach(t=>{t.rateCounter=Math.max(0,whole);const lw=Math.floor(whole/t.rateDiv);t.level=((lw%LEVELS)+LEVELS)%LEVELS;if(t.level===0)t.nodeIndex=0;});
+  nextBaseStepTime=audioCtx.currentTime+Math.max(.006,(1-frac)*secondsPerStep());
+}
+function startNmidiFollowScheduler(){if(!playing||!audioCtx||nmidiRole!=='follow'||!nmidiMasterRunning)return;alignPfsToNmidiPhase();clearInterval(schedulerTimer);scheduler();schedulerTimer=setInterval(scheduler,lookaheadMs);}
+nmidiMode.addEventListener('change',()=>{
+  nmidiRole=nmidiMode.value;stopNmidiHeartbeat();
+  if(nmidiRole!=='off'&&midiExternal){if(midiPort)midiPort.onmidimessage=null;midiPort=null;midiExternal=false;midiInput.value='';midiStatus.textContent='READY';midiBpm.textContent='--';midiPhase.textContent='--';}
+  if(nmidiRole==='off'){nmidiStatus.textContent='OFF';nmidiBpm.textContent='--';nmidiSource.textContent='--';nmidiPacket.textContent='--';nmidiMasterRunning=false;if(playing){baseStepIndex=0;tracks.forEach(t=>{t.level=0;t.nodeIndex=0;t.rateCounter=0;});nextBaseStepTime=audioCtx.currentTime+.05;clearInterval(schedulerTimer);scheduler();schedulerTimer=setInterval(scheduler,lookaheadMs);}return;}
+  if(!nmidiChannel){nmidiStatus.textContent='UNAVAILABLE';nmidiMode.value='off';nmidiRole='off';return;}
+  if(nmidiRole==='master'){nmidiBpmValue=Number(tempo.value);nmidiPreviousMasterBpm=nmidiBpmValue;nmidiSource.textContent='PFS';nmidiBpm.textContent=String(Math.round(nmidiBpmValue));if(playing){nmidiMasterRunning=true;nmidiPhaseOriginMs=nmidiGlobalNowMs()+60;sendNmidiState('start');startNmidiHeartbeat();}else{nmidiMasterRunning=false;nmidiPhaseOriginMs=null;sendNmidiState('mode');}nmidiStatus.textContent=nmidiMasterRunning?'MASTER RUN':'MASTER STOP';return;}
+  if(nmidiRole==='follow'){nmidiStatus.textContent=nmidiLastPacketAt?(nmidiMasterRunning?'FOLLOWING':'MASTER STOP'):'WAITING';clearInterval(schedulerTimer);schedulerTimer=null;if(playing&&nmidiMasterRunning)startNmidiFollowScheduler();}
+});
+if(nmidiChannel){
+  nmidiChannel.onmessage=e=>{
+    const m=e.data;if(!m||m.protocol!=='NMIDI'||m.version!==3||m.type!=='state')return;if(nmidiRole==='master'&&m.source==='PFS')return;
+    nmidiLastPacketAt=performance.now();nmidiPacket.textContent=String(m.reason||'state').toUpperCase();if(m.source)nmidiSource.textContent=m.source;
+    const bpm=Number.isFinite(m.bpm)?m.bpm:nmidiBpmValue, origin=Number.isFinite(m.phaseOriginMs)?m.phaseOriginMs:nmidiPhaseOriginMs, was=nmidiMasterRunning;
+    const bpmChanged=Number.isFinite(bpm)&&(nmidiLastAppliedBpm==null||Math.abs(bpm-nmidiLastAppliedBpm)>=.5), originChanged=Number.isFinite(origin)&&(nmidiLastAppliedOrigin==null||Math.abs(origin-nmidiLastAppliedOrigin)>5);
+    nmidiMasterRunning=!!m.running;if(Number.isFinite(bpm)&&nmidiRole==='follow')setPfsTempoFromNmidi(bpm);if(Number.isFinite(origin))nmidiPhaseOriginMs=origin;
+    if(nmidiRole!=='follow'){nmidiLastAppliedBpm=bpm;nmidiLastAppliedOrigin=origin;return;}
+    if(!nmidiMasterRunning){nmidiStatus.textContent='MASTER STOP';clearInterval(schedulerTimer);schedulerTimer=null;nmidiLastAppliedBpm=bpm;nmidiLastAppliedOrigin=origin;return;}
+    nmidiStatus.textContent='FOLLOWING';
+    const hard=m.reason==='start'||(!was&&nmidiMasterRunning)||bpmChanged||(originChanged&&m.reason!=='heartbeat');
+    if(playing&&audioCtx){if(hard)startNmidiFollowScheduler();else if(!schedulerTimer){scheduler();schedulerTimer=setInterval(scheduler,lookaheadMs);}}
+    nmidiLastAppliedBpm=bpm;nmidiLastAppliedOrigin=origin;
+  };
+}else{nmidiMode.disabled=true;nmidiStatus.textContent='UNAVAILABLE';}
+setInterval(()=>{if(nmidiRole==='follow'&&nmidiLastPacketAt){const age=performance.now()-nmidiLastPacketAt;if(age>5000)nmidiStatus.textContent='STALE';else if(nmidiMasterRunning)nmidiStatus.textContent='FOLLOWING';}},250);
+
 midiButton.addEventListener('click',async()=>{midiPanel.classList.toggle('open');if(!midiAccess)await initMIDI();});
 async function initMIDI(){
   if(!navigator.requestMIDIAccess){midiStatus.textContent='UNAVAILABLE';return;}
@@ -400,7 +456,9 @@ function populateMidiInputs(){
   if([...midiInput.options].some(o=>o.value===old))midiInput.value=old;
 }
 midiInput.addEventListener('change',async()=>{
-  if(midiPort)midiPort.onmidimessage=null;midiPort=null;midiExternal=!!midiInput.value;midiLastPulseTime=0;midiIntervals=[];midiClockSeenAt=0;midiBpm.textContent='--';
+  if(midiPort)midiPort.onmidimessage=null;midiPort=null;midiExternal=!!midiInput.value;
+  if(midiExternal&&nmidiRole!=='off'){stopNmidiHeartbeat();nmidiRole='off';nmidiMode.value='off';nmidiStatus.textContent='OFF';nmidiBpm.textContent='--';nmidiSource.textContent='--';nmidiPacket.textContent='--';}
+  midiLastPulseTime=0;midiIntervals=[];midiClockSeenAt=0;midiBpm.textContent='--';
   if(!midiExternal){midiStatus.textContent='READY';midiPhase.textContent='--';if(playing){baseStepIndex=0;nextBaseStepTime=audioCtx.currentTime+0.05;clearInterval(schedulerTimer);schedulerTimer=setInterval(scheduler,lookaheadMs);}return;}
   midiPort=midiAccess.inputs.get(midiInput.value);if(midiPort){try{await midiPort.open();}catch(e){}midiPort.onmidimessage=handleMidiMessage;midiStatus.textContent='WAITING';clearInterval(schedulerTimer);schedulerTimer=null;}
 });

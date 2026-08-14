@@ -3,38 +3,44 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PFS - Probabilistic Fractal Sequencer V1.16 TRANSPOSE</title>
+  <title>PFS - Probabilistic Fractal Sequencer V1.17 NMIDI</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="machine-shell">
     <section class="machine" aria-label="Probabilistic Fractal Sequencer">
       <div class="brand">PFS - PROBABILISTIC FRACTAL SEQUENCER</div>
-      <button id="midiButton" class="midi-button" type="button">MIDI</button>
+      <button id="midiButton" class="midi-button" type="button">CLOCK</button>
       <button id="fuapButton" class="fuap-button" type="button" aria-pressed="false">FUAP!</button>
 
-      <div id="midiPanel" class="midi-panel" aria-label="MIDI clock settings">
-        <div class="midi-title">MIDI CLOCK IN</div>
-        <label for="midiInput">INPUT</label>
+      <div id="midiPanel" class="midi-panel" aria-label="Clock and sync settings">
+        <div class="midi-title">CLOCK / SYNC</div>
+        <label for="nmidiMode">NMIDI v3</label>
+        <select id="nmidiMode">
+          <option value="off" selected>OFF / LOCAL</option>
+          <option value="master">MASTER</option>
+          <option value="follow">FOLLOW</option>
+        </select>
+        <div class="midi-readout">
+          <div>NMIDI <strong id="nmidiStatus">OFF</strong></div>
+          <div>CLOCK <strong><span id="nmidiBpm">--</span> BPM</strong></div>
+          <div>SOURCE <strong id="nmidiSource">--</strong></div>
+          <div>PACKET <strong id="nmidiPacket">--</strong></div>
+        </div>
+        <div class="clock-divider"></div>
+        <label for="midiInput">WEB MIDI INPUT</label>
         <select id="midiInput"><option value="">NO MIDI INPUT</option></select>
         <div class="midi-readout">
-          <div>STATUS <strong id="midiStatus">OFF</strong></div>
+          <div>MIDI <strong id="midiStatus">OFF</strong></div>
           <div>CLOCK <strong><span id="midiBpm">--</span> BPM</strong></div>
           <div>PHASE <strong id="midiPhase">--</strong></div>
         </div>
+        <div class="midi-note">NMIDI MASTER follows PFS PLAY/STOP. FOLLOW keeps PLAY local. MIDI and NMIDI are mutually exclusive.</div>
+      </div>
         <div class="midi-note">F8 = clock · FA = establish ONE · PLAY remains local</div>
       </div>
 
       <div class="master-controls">
-        <div class="transpose-block" aria-label="Global transpose">
-          <div class="section-title">TRANSPOSE</div>
-          <div class="transpose-row">
-            <button class="transpose-button" type="button" data-shift="-12">-12</button>
-            <button class="transpose-button" type="button" data-shift="-1">-1</button>
-            <button class="transpose-button" type="button" data-shift="1">+1</button>
-            <button class="transpose-button" type="button" data-shift="12">+12</button>
-          </div>
-        </div>
         <div class="tempo-block">
           <div class="knob" id="tempoKnob"><span></span></div>
           <label>TEMPO</label>
@@ -108,6 +114,6 @@
       </aside>
     </section>
   </main>
-  <script src="program.js?v=1.16"></script>
+  <script src="program.js?v=1.17"></script>
 </body>
 </html>
