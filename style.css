@@ -50,3 +50,10 @@ body{display:block;min-height:100vh}
 .midi-button.clock-pulse{background:var(--step);color:#17130a;box-shadow:inset 0 0 0 2px var(--step-hi),0 0 18px rgba(242,200,75,.85),0 4px 9px rgba(0,0,0,.65)}
 .midi-panel{display:none;position:absolute;top:106px;right:315px;width:305px;padding:14px;z-index:30;border:2px solid #050505;border-radius:6px;background:linear-gradient(#20201d,#11110f);box-shadow:inset 0 0 0 1px #4f4b40,0 12px 28px rgba(0,0,0,.72)}
 .midi-panel.open{display:block}.midi-title{margin-bottom:10px;color:var(--step-hi);font-size:10px;letter-spacing:.18em;text-align:center}.midi-panel label{display:block;margin-bottom:4px;color:#8f8f8a;font-size:8px;letter-spacing:.14em}#midiInput{width:100%;height:30px;background:#111;color:#d6d6d1;border:1px solid #4f4b40;margin-bottom:10px}.midi-readout{font-family:monospace;font-size:11px;line-height:1.7;color:#8f8f8a}.midi-readout strong{color:var(--step-hi);font-weight:normal}.midi-note{margin-top:8px;color:#6f6d65;font-size:8px;line-height:1.4}
+
+
+/* V1.16 — global transpose */
+.transpose-block{position:absolute;top:118px;left:50%;transform:translateX(-50%);text-align:center;z-index:9}
+.transpose-row{display:flex;gap:6px;justify-content:center}
+.transpose-button{min-width:38px;height:24px;padding:0 8px;border:2px solid #050505;border-radius:2px;background:#27251e;color:#9e9b91;box-shadow:inset 0 0 0 1px #4f4b40;cursor:pointer;font-size:9px}
+.transpose-button:active{background:var(--step);color:#17130a;box-shadow:inset 0 0 0 1px var(--step-hi),0 0 7px rgba(198,144,24,.4);transform:translateY(1px)}
