@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PFS - Probabilistic Fractal Sequencer V1.18 FINAL</title>
+  <title>PFS - Probabilistic Fractal Sequencer V1.17 NMIDI</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -37,17 +37,10 @@
         </div>
         <div class="midi-note">NMIDI MASTER follows PFS PLAY/STOP. FOLLOW keeps PLAY local. MIDI and NMIDI are mutually exclusive.</div>
       </div>
+        <div class="midi-note">F8 = clock · FA = establish ONE · PLAY remains local</div>
+      </div>
 
       <div class="master-controls">
-        <div class="transpose-block" aria-label="Global transpose">
-          <div class="section-title">TRANSPOSE</div>
-          <div class="transpose-row">
-            <button class="transpose-button" type="button" data-shift="-12">-12</button>
-            <button class="transpose-button" type="button" data-shift="-1">-1</button>
-            <button class="transpose-button" type="button" data-shift="1">+1</button>
-            <button class="transpose-button" type="button" data-shift="12">+12</button>
-          </div>
-        </div>
         <div class="tempo-block">
           <div class="knob" id="tempoKnob"><span></span></div>
           <label>TEMPO</label>
@@ -85,7 +78,7 @@
       </div>
 
       <aside class="utility-column">
-        <div class="mixer-row-label">MIX</div>
+        <div class="mixer-row-label">MIXER</div>
         <div class="channels">
           <div class="channel" data-track="0">
             <div class="channel-num">1</div>
@@ -121,6 +114,6 @@
       </aside>
     </section>
   </main>
-  <script src="program.js?v=1.18"></script>
+  <script src="program.js?v=1.17"></script>
 </body>
 </html>
