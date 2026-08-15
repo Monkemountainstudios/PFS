@@ -198,6 +198,15 @@ function refreshTrackStatus(track) {
 
 tracks.forEach(createTree);
 
+// V1.16 — global transpose, restored into the NMIDI trunk.
+document.querySelectorAll('.transpose-button').forEach(b=>b.addEventListener('click',()=>{
+  const shift=Number(b.dataset.shift);
+  tracks.forEach(track=>track.nodes.forEach(state=>{
+    state.midi=Math.max(MIN_MIDI,Math.min(MAX_MIDI,state.midi+shift));
+    renderNode(state);
+  }));
+}));
+
 document.querySelectorAll('.track-button').forEach(btn => btn.addEventListener('click',()=>{
   const t=tracks[Number(btn.dataset.track)]; t.open=!t.open;
   t.area.classList.toggle('visible',t.open); btn.classList.toggle('tree-open',t.open); btn.setAttribute('aria-pressed',String(t.open));
@@ -392,6 +401,19 @@ document.querySelectorAll('.channel').forEach((ch,i)=>{
   rev.addEventListener('input',()=>{t.reverb=Number(rev.value)/100;if(t.sendNode)t.sendNode.gain.setTargetAtTime(t.reverb,audioCtx.currentTime,.01);});
 });
 
+function fitMachine() {
+  const machine = document.querySelector('.machine');
+  if (!machine) return;
+  machine.style.transform = 'scale(1)';
+  const naturalWidth = machine.scrollWidth;
+  const availableWidth = window.innerWidth - 20;
+  const scale = Math.min(1, availableWidth / naturalWidth);
+  machine.style.transform = `scale(${scale})`;
+  machine.style.transformOrigin = 'top left';
+}
+window.addEventListener('load', fitMachine);
+window.addEventListener('resize', fitMachine);
+
 fuapButton.addEventListener('click',()=>{
   fuapMode = !fuapMode;
   fuapButton.classList.toggle('active',fuapMode);
@@ -399,7 +421,7 @@ fuapButton.addEventListener('click',()=>{
 });
 
 
-/* ---------- WEB MIDI CLOCK IN ---------- */
+/* ---------- CLOCK: NMIDI v3 + WEB MIDI IN ---------- */
 
 function nmidiGlobalNowMs(){return performance.timeOrigin+performance.now();}
 function sendNmidiState(reason){
