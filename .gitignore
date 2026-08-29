@@ -1,0 +1,9 @@
+/build/
+/.vs/
+/.idea/
+/.vscode/
+*.user
+*.suo
+*.VC.db
+.DS_Store
+
